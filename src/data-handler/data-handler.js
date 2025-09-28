@@ -52,8 +52,13 @@ class DataHandler {
         //   return EventData.EvUpdateLootChest.handle(event)
 
         default:
-          if (process.env.LOG_UNPROCESSED)
-            Logger.silly('handleEventData', event.parameters)
+            // if(event?.parameters?.[252] == 165 || event?.parameters?.[253] == 481) {
+            //   Logger.silly('handleEventData', event.parameters)
+            //   console.log(`LOG MUERTE ${event?.parameters?.[252]} - ${event?.parameters?.[253]}`);
+            //   this.tryDetectDeathEvent(event)
+            // }
+          // Intentar detectar eventos de muerte automáticamente
+          
       }
     } catch (error) {
       if (error instanceof ParserError) {
@@ -72,6 +77,9 @@ class DataHandler {
         case Config.events.OpInventoryMoveItem:
           return RequestData.OpInventoryMoveItem.handle(event)
 
+        case 21:
+          return;
+
         default:
           if (process.env.LOG_UNPROCESSED) Logger.silly('handleRequestData', event.parameters)
       }
@@ -88,9 +96,13 @@ class DataHandler {
     const eventId = event?.parameters?.[253]
 
     try {
+      // a
       switch (eventId) {
         case Config.events.OpJoin:
           return ResponseData.OpJoin.handle(event)
+        
+        case 481:
+          return ResponseData.OpPlayerDeath.handle(event)
 
         default:
           if (process.env.LOG_UNPROCESSED) Logger.silly('handleResponseData', event.parameters)
@@ -101,6 +113,44 @@ class DataHandler {
       } else {
         Logger.error(error, event)
       }
+    }
+  }
+
+  static tryDetectDeathEvent(event) {
+    try {
+      const parameters = event?.parameters || []
+      
+      // Buscar patrones que puedan indicar eventos de muerte
+      const deathKeywords = ['death', 'died', 'killed', 'defeated', 'slain', 'fell']
+      const hasDeathKeyword = parameters.some(param => 
+        typeof param === 'string' && 
+        deathKeywords.some(keyword => param.toLowerCase().includes(keyword))
+      )
+
+      if (hasDeathKeyword) {
+        Logger.debug('Potential death event detected:', event.parameters)
+        
+        // Intentar procesar como evento de muerte
+        EventData.EvPlayerDeath.handle(event)
+      }
+
+      // También intentar detectar mensajes de chat con información de muerte
+      const hasChatPattern = parameters.some(param => 
+        typeof param === 'string' && 
+        (param.includes(' was killed by ') || 
+         param.includes(' died') || 
+         param.includes(' was defeated'))
+      )
+
+      if (hasChatPattern) {
+        Logger.debug('Potential chat death message detected:', event.parameters)
+        
+        // Intentar procesar como mensaje de chat
+        EventData.EvChatMessage.handle(event)
+      }
+
+    } catch (error) {
+      Logger.warn('Error in death event detection:', error.message)
     }
   }
 }

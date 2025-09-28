@@ -5,6 +5,7 @@ const axios = require('axios')
 const Config = require('./config')
 const { red, green } = require('./utils/colors')
 const formatPlayerName = require('./utils/format-player-name')
+const ItemClassifier = require('./item-classifier')
 const dotenv = require('dotenv')
 dotenv.config()
 
@@ -33,7 +34,9 @@ class LootLogger {
       'quantity',
       'looted_from__alliance',
       'looted_from__guild',
-      'looted_from__name'
+      'looted_from__name',
+      'item_category',
+      'is_trash'
     ].join(';')
 
     this.stream.write(header + '\n')
@@ -71,6 +74,10 @@ class LootLogger {
       return
     }
 
+    // Clasificar el item
+    const itemClassification = ItemClassifier.getItemValue(itemId, itemName)
+    const isTrash = itemClassification.category === 'trash'
+
     const lineData = [
       date.toISOString(),
       lootedBy.allianceName ?? '',
@@ -81,7 +88,9 @@ class LootLogger {
       quantity,
       lootedFrom.allianceName ?? '',
       lootedFrom.guildName ?? '',
-      lootedFrom.playerName
+      lootedFrom.playerName,
+      itemClassification.category,
+      isTrash
     ]
 
     const newLoot = {
@@ -94,7 +103,9 @@ class LootLogger {
       quantity: lineData[6],
       looted_from__alliance: lineData[7],
       looted_from__guild: lineData[8],
-      looted_from__name: lineData[9]
+      looted_from__name: lineData[9],
+      item_category: lineData[10],
+      is_trash: lineData[5] === 'Trash'
     }
 
     const line = lineData.join(';')
@@ -119,20 +130,25 @@ class LootLogger {
         lootedBy,
         lootedFrom,
         quantity,
-        itemName
+        itemName,
+        itemId
       })
     )
   }
 
-  formatLootLog({ date, lootedBy, itemName, lootedFrom, quantity }) {
+  formatLootLog({ date, lootedBy, itemName, lootedFrom, quantity, itemId }) {
     const hours = date.getUTCHours().toString().padStart(2, '0')
     const minute = date.getUTCMinutes().toString().padStart(2, '0')
     const seconds = date.getUTCSeconds().toString().padStart(2, '0')
 
+    // Clasificar el item para mostrar si es basura
+    const itemClassification = ItemClassifier.getItemValue(itemId, itemName)
+    const trashIndicator = itemClassification.category === 'trash' ? '🗑️ ' : '💎 '
+
     return `${hours}:${minute}:${seconds} UTC: ${formatPlayerName(
       lootedBy,
       green
-    )} looted ${quantity}x ${itemName} from ${formatPlayerName(
+    )} looted ${quantity}x ${trashIndicator}${itemName} from ${formatPlayerName(
       lootedFrom,
       red
     )}.`
