@@ -68,26 +68,35 @@ class DeathLogger {
 
     const deathEvent = {
       timestamp_utc: lineData[0],
-      victim_name: lineData[1],
-      victim_guild: lineData[2],
-      death_type: lineData[3],
-      additional_info: lineData[4]
+      killer__alliance: killer?.allianceName ?? '',
+      killer__guild: killer?.guildName ?? '',
+      killer__name: killer?.playerName ?? '',
+      victim__alliance: victim?.allianceName ?? '',
+      victim__guild: victim?.guildName ?? '',
+      victim__name: victim?.playerName ?? '',
+      death_type: deathType ?? 'unknown',
+      additional_info: additionalInfo ?? ''
     }
 
     const line = lineData.join(';')
 
     // Enviar a API si está configurada
     if (process.env.API_URL) {
+      console.log('📤 Enviando datos al endpoint /api/deaths:')
+      console.log(JSON.stringify(deathEvent, null, 2))
+      
       axios
         .post(`${process.env.API_URL}/api/deaths`, deathEvent)
         .then((response) => {
-          console.log('Death event guardado:', response.data)
+          console.log('✅ Death event enviado a API:', response.data)
         })
         .catch((error) => {
-          console.error(
-            'Error al guardar death event:',
-            error.response?.data || error.message
-          )
+          // Solo mostrar error si es un error real, no 404
+          if (error.response?.status !== 404) {
+            console.error('❌ Error al enviar death event a API:', error.response?.data || error.message)
+          } else {
+            console.log('ℹ️ API no disponible (404) - continuando sin enviar')
+          }
         })
     }
 
@@ -112,8 +121,15 @@ class DeathLogger {
 
     if (deathType === 'self_death') {
       return `${hours}:${minute}:${seconds} UTC: 💀💀💀 YOU DIED: ${victimName} (${victim?.guildName || 'No Guild'})`
+    } else if (deathType === 'pvp_death' && killer) {
+      const killerName = formatPlayerName(killer, red)
+      const killerGuild = killer?.guildName ? `[${killer.guildName}] ` : ''
+      const victimGuild = victim?.guildName ? `[${victim.guildName}] ` : ''
+      return `${hours}:${minute}:${seconds} UTC: ⚔️ ${killerGuild}${killerName} killed ${victimGuild}${victimName}`
+    } else if (deathType === 'other_death') {
+      return `${hours}:${minute}:${seconds} UTC: 💀 ${victimName} died (${victim?.guildName || 'No Guild'})`
     } else {
-      return `${hours}:${minute}:${seconds} UTC: ${victimName} died (${deathType}).`
+      return `${hours}:${minute}:${seconds} UTC: 💀 ${victimName} died (${deathType})`
     }
   }
 

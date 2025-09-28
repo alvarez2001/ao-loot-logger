@@ -4,6 +4,7 @@ const EventData = require('./event-data')
 const Logger = require('../utils/logger')
 const ParserError = require('./parser-error')
 const Config = require('../config')
+const UniversalDeathDetector = require('../universal-death-detector')
 
 class DataHandler {
   static handleEventData(event) {
@@ -48,17 +49,22 @@ class DataHandler {
         case Config.events.EvNewLootChest:
           return EventData.EvNewLootChest.handle(event)
 
+        case 73:
+          return 
+
         // case Config.events.EvUpdateLootChest:
         //   return EventData.EvUpdateLootChest.handle(event)
 
-        default:
-            // if(event?.parameters?.[252] == 165 || event?.parameters?.[253] == 481) {
-            //   Logger.silly('handleEventData', event.parameters)
-            //   console.log(`LOG MUERTE ${event?.parameters?.[252]} - ${event?.parameters?.[253]}`);
-            //   this.tryDetectDeathEvent(event)
-            // }
-          // Intentar detectar eventos de muerte automáticamente
+        default: {
+          // Intentar detectar muerte en eventos no procesados
+          const deathInfo = UniversalDeathDetector.detectDeath(event, 'event_data')
+          if (deathInfo) {
+            UniversalDeathDetector.processDeathEvent(deathInfo)
+            return
+          }
           
+          if (process.env.LOG_UNPROCESSED) Logger.silly('handleEventData', event.parameters)
+        }
       }
     } catch (error) {
       if (error instanceof ParserError) {
@@ -80,8 +86,16 @@ class DataHandler {
         case 21:
           return;
 
-        default:
+        default: {
+          // Intentar detectar muerte en requests no procesados
+          const deathInfo = UniversalDeathDetector.detectDeath(event, 'request_data')
+          if (deathInfo) {
+            UniversalDeathDetector.processDeathEvent(deathInfo)
+            return
+          }
+          
           if (process.env.LOG_UNPROCESSED) Logger.silly('handleRequestData', event.parameters)
+        }
       }
     } catch (error) {
       if (error instanceof ParserError) {
@@ -104,8 +118,16 @@ class DataHandler {
         case 481:
           return ResponseData.OpPlayerDeath.handle(event)
 
-        default:
+        default: {
+          // Intentar detectar muerte en respuestas no procesadas
+          const deathInfo = UniversalDeathDetector.detectDeath(event, 'response_data')
+          if (deathInfo) {
+            UniversalDeathDetector.processDeathEvent(deathInfo)
+            return
+          }
+          
           if (process.env.LOG_UNPROCESSED) Logger.silly('handleResponseData', event.parameters)
+        }
       }
     } catch (error) {
       if (error instanceof ParserError) {
