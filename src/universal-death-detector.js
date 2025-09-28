@@ -109,6 +109,12 @@ class UniversalDeathDetector {
     try {
       Logger.info(`🔍 Parseando evento 165:`, parameters)
       
+      // DEBUG: Mostrar todos los parámetros para encontrar la alianza
+      Logger.info(`🔍 Todos los parámetros del evento 165:`)
+      Object.keys(parameters).forEach(key => {
+        Logger.info(`  ${key}: ${JSON.stringify(parameters[key])}`)
+      })
+      
       // Estructura del evento 165 (formato objeto):
       // '0': [coordenadas] - Posición
       // '1': ID del evento
@@ -122,6 +128,21 @@ class UniversalDeathDetector {
       const killerName = parameters['10'] // 'Francisco159'
       const killerGuild = parameters['11'] // 'I N T E R B A N K'
       
+      // Buscar información de alianza en otros parámetros
+      let killerAlliance = ''
+      let victimAlliance = ''
+      
+      // Intentar encontrar alianzas en diferentes parámetros
+      for (const key of Object.keys(parameters)) {
+        const value = parameters[key]
+        if (typeof value === 'string' && value.length > 0) {
+          // Si el valor contiene información de alianza (patrones comunes)
+          if (value.includes('[') && value.includes(']')) {
+            Logger.info(`🔍 Posible alianza encontrada en ${key}: ${value}`)
+          }
+        }
+      }
+      
       Logger.info(`📊 Datos extraídos del evento 165:`)
       Logger.info(`Víctima: ${victimName} (${victimGuild})`)
       Logger.info(`Killer: ${killerName} (${killerGuild})`)
@@ -131,18 +152,30 @@ class UniversalDeathDetector {
         return null
       }
       
-      // Crear objetos de jugador
-      const killer = MemoryStorage.players.getByName(killerName) || 
-                    MemoryStorage.players.add({ 
-                      playerName: killerName, 
-                      guildName: killerGuild 
-                    })
+      // Crear objetos de jugador con información de alianza
+      // Primero intentar obtener información existente del jugador
+      let existingKiller = MemoryStorage.players.getByName(killerName)
+      let existingVictim = MemoryStorage.players.getByName(victimName)
       
-      const victim = MemoryStorage.players.getByName(victimName) || 
-                     MemoryStorage.players.add({ 
-                       playerName: victimName, 
-                       guildName: victimGuild 
-                     })
+      const killer = existingKiller || MemoryStorage.players.add({ 
+        playerName: killerName, 
+        guildName: killerGuild,
+        allianceName: killerAlliance
+      })
+      
+      const victim = existingVictim || MemoryStorage.players.add({ 
+        playerName: victimName, 
+        guildName: victimGuild,
+        allianceName: victimAlliance
+      })
+      
+      // Si el jugador existía, usar su información de alianza
+      if (existingKiller && existingKiller.allianceName) {
+        killer.allianceName = existingKiller.allianceName
+      }
+      if (existingVictim && existingVictim.allianceName) {
+        victim.allianceName = existingVictim.allianceName
+      }
       
       // Extraer ubicación si está disponible
       let location = null
