@@ -10,6 +10,7 @@ ao-loot-logger/
 *.log
 *.error
 *.exe
+.env
 
 event-codes.txt
 operation-codes.txt

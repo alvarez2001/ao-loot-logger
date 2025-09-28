@@ -1,9 +1,12 @@
 const fs = require('fs')
 const crypto = require('crypto')
+const axios = require('axios')
 
 const Config = require('./config')
 const { red, green } = require('./utils/colors')
 const formatPlayerName = require('./utils/format-player-name')
+const dotenv = require('dotenv')
+dotenv.config()
 
 class LootLogger {
   constructor() {
@@ -68,7 +71,7 @@ class LootLogger {
       return
     }
 
-    const line = [
+    const lineData = [
       date.toISOString(),
       lootedBy.allianceName ?? '',
       lootedBy.guildName ?? '',
@@ -79,7 +82,34 @@ class LootLogger {
       lootedFrom.allianceName ?? '',
       lootedFrom.guildName ?? '',
       lootedFrom.playerName
-    ].join(';')
+    ]
+
+    const newLoot = {
+      timestamp_utc: lineData[0],
+      looted_by__alliance: lineData[1],
+      looted_by__guild: lineData[2],
+      looted_by__name: lineData[3],
+      item_id: lineData[4],
+      item_name: lineData[5],
+      quantity: lineData[6],
+      looted_from__alliance: lineData[7],
+      looted_from__guild: lineData[8],
+      looted_from__name: lineData[9]
+    }
+
+    const line = lineData.join(';')
+
+    axios
+      .post(`${process.env.API_URL}/api/loot`, newLoot)
+      .then((response) => {
+        console.log('Loot guardado:', response.data)
+      })
+      .catch((error) => {
+        console.error(
+          'Error al guardar loot:',
+          error.response?.data || error.message
+        )
+      })
 
     this.stream.write(line + '\n')
 
